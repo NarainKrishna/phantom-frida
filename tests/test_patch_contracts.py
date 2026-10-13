@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 import build
-from patches import get_source_patches
+from patches import get_source_patches, get_stability_patches_17
 
 FIXTURE_DIR = Path("tests/fixtures/frida-17.16.4")
 
@@ -14,6 +14,15 @@ def apply_text_patches(text: str, name: str) -> str:
     for old, new in get_source_patches(name, name.capitalize()):
         text = text.replace(old, new)
     return text
+
+
+def test_stability_patch_perfetto_filter_avoids_undefined_label() -> None:
+    patch = get_stability_patches_17(Path("."))[0]
+
+    assert patch["file"].endswith("gumprocess-linux.c")
+    assert "goto skip;" not in patch["new"]
+    assert "carry_on = TRUE;" in patch["new"]
+    assert "carry_on = func (entry, user_data);" in patch["new"]
 
 
 def make_core_fixture(tmp_path: Path) -> Path:

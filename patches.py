@@ -624,8 +624,9 @@ def get_stability_patches_17(frida_dir: Path) -> list[dict]:
             "old": "    carry_on = func (entry, user_data);",
             "new": (
                 '    if (entry->name != NULL && strcmp (entry->name, "perfetto_hprof_") == 0)\n'
-                "        goto skip;\n"
-                "    carry_on = func (entry, user_data);"
+                "      carry_on = TRUE;\n"
+                "    else\n"
+                "      carry_on = func (entry, user_data);"
             ),
         },
     ]
