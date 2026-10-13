@@ -174,6 +174,47 @@ def test_required_patches_rename_jni_and_every_zymbiote_template(tmp_path: Path)
     assert "Signal interception intentionally disabled" in combined
 
 
+def test_required_patches_support_exit_monitor_with_prospero_branch(tmp_path: Path) -> None:
+    root = make_core_fixture(tmp_path)
+    exit_monitor = root / "subprojects/frida-core/lib/payload/exit-monitor.vala"
+    exit_monitor.write_text(
+        """\t\tconstruct {
+\t\t\tvar interceptor = Gum.Interceptor.obtain ();
+
+\t\t\tunowned Gum.InvocationListener listener = this;
+
+#if WINDOWS
+\t\t\tinterceptor.attach ((void *) Gum.Process.find_module_by_name ("kernel32.dll").find_export_by_name ("ExitProcess"),
+\t\t\t\tlistener);
+#else
+\t\t\tconst string[] apis = {
+\t\t\t\t"exit",
+\t\t\t\t"_exit",
+\t\t\t\t"abort",
+\t\t\t};
+#if PROSPERO
+\t\t\tforeach (var symbol in apis) {
+\t\t\t\tinterceptor.attach ((void *) Gum.Module.find_global_export_by_name (symbol), listener);
+\t\t\t}
+#else
+\t\t\tvar libc = Gum.Process.get_libc_module ();
+\t\t\tforeach (var symbol in apis) {
+\t\t\t\tinterceptor.attach ((void *) libc.find_export_by_name (symbol), listener);
+\t\t\t}
+#endif
+#endif
+\t\t}
+""",
+        encoding="utf-8",
+    )
+
+    build.apply_required_file_patches(root, "oemcodec")
+
+    patched = exit_monitor.read_text(encoding="utf-8")
+    assert "Exit interception intentionally disabled" in patched
+    assert "interceptor.attach" not in patched
+
+
 def test_required_patch_fails_when_upstream_contract_drifts(tmp_path: Path) -> None:
     root = make_core_fixture(tmp_path)
     target = root / "subprojects/frida-core/src/linux/linux-host-session.vala"

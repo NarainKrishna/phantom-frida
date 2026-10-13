@@ -642,7 +642,12 @@ def apply_required_file_patches(frida_dir: Path, custom_name: str) -> None:
         if not target.is_file():
             raise BuildError(f"Required patch file is missing: {patch.relative_path}")
 
-        count = replace_in_file(target, patch.old, patch.new)
+        variants = (patch.old,) if isinstance(patch.old, str) else patch.old
+        count = 0
+        for old in variants:
+            count = replace_in_file(target, old, patch.new)
+            if count > 0:
+                break
         if count < patch.minimum:
             raise BuildError(
                 f"Required pattern {patch.old!r} occurred {count} times in "
