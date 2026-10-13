@@ -28,7 +28,7 @@ class RequiredFilePatch:
     """A source contract whose absence must stop the build."""
 
     relative_path: str
-    old: str
+    old: str | tuple[str, ...]
     new: str
     minimum: int = 1
 
@@ -91,7 +91,35 @@ def get_required_file_patches(name: str) -> list[RequiredFilePatch]:
 \t\t\t\tinterceptor.attach ((void *) libc.find_export_by_name (symbol), listener);
 \t\t\t}
 #endif
-\t\t}"""
+\t\t}""",
+                """\t\tconstruct {
+\t\t\tvar interceptor = Gum.Interceptor.obtain ();
+
+\t\t\tunowned Gum.InvocationListener listener = this;
+
+#if WINDOWS
+\t\t\tinterceptor.attach ((void *) """
+                """Gum.Process.find_module_by_name (\"kernel32.dll\")."""
+                """find_export_by_name (\"ExitProcess\"),
+\t\t\t\tlistener);
+#else
+\t\t\tconst string[] apis = {
+\t\t\t\t\"exit\",
+\t\t\t\t\"_exit\",
+\t\t\t\t\"abort\",
+\t\t\t};
+#if PROSPERO
+\t\t\tforeach (var symbol in apis) {
+\t\t\t\tinterceptor.attach ((void *) Gum.Module.find_global_export_by_name (symbol), listener);
+\t\t\t}
+#else
+\t\t\tvar libc = Gum.Process.get_libc_module ();
+\t\t\tforeach (var symbol in apis) {
+\t\t\t\tinterceptor.attach ((void *) libc.find_export_by_name (symbol), listener);
+\t\t\t}
+#endif
+#endif
+\t\t}""",
             ),
             """\t\tconstruct {
 \t\t\t// Exit interception intentionally disabled.
