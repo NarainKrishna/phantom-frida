@@ -268,6 +268,26 @@ def test_targeted_patch_uses_non_counted_art_jit_memfd_name(tmp_path: Path) -> N
     assert '"jit-cache"' not in patched
 
 
+def test_stability_patch_skips_perfetto_thread_without_missing_label(tmp_path: Path) -> None:
+    root = tmp_path
+    target = root / "subprojects/frida-gum/gum/backend-linux/gumprocess-linux.c"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        "    if (gum_fill_thread_details (entry, flags))\n"
+        "    carry_on = func (entry, user_data);\n"
+        "\n"
+        "    g_free ((gpointer) entry->name);\n",
+        encoding="utf-8",
+    )
+
+    build.apply_stability_fixes(root, 17)
+
+    patched = target.read_text(encoding="utf-8")
+    assert "goto skip;" not in patched
+    assert 'strcmp (entry->name, "perfetto_hprof_") != 0' in patched
+    assert "carry_on = func (entry, user_data);" in patched
+
+
 def make_strict_wx_fixture(
     tmp_path: Path,
 ) -> tuple[Path, dict[str, Path], list[Path]]:
