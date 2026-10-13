@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 import build
-from patches import get_source_patches
+from patches import get_source_patches, get_stability_patches_17
 
 FIXTURE_DIR = Path("tests/fixtures/frida-17.16.4")
 
@@ -266,6 +266,17 @@ def test_targeted_patch_uses_non_counted_art_jit_memfd_name(tmp_path: Path) -> N
     patched = linux.read_text(encoding="utf-8")
     assert '"jit-code-cache"' in patched
     assert '"jit-cache"' not in patched
+
+
+def test_stability_patch_does_not_inject_missing_skip_label() -> None:
+    patch = get_stability_patches_17(Path("."))[0]
+    assert patch["old"] == "    carry_on = func (entry, user_data);"
+    assert "goto skip;" not in patch["new"]
+    assert (
+        patch["new"]
+        == '    if (entry->name == NULL || strcmp (entry->name, "perfetto_hprof_") != 0)\n'
+        "      carry_on = func (entry, user_data);"
+    )
 
 
 def make_strict_wx_fixture(
